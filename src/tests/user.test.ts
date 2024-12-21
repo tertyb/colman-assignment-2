@@ -5,26 +5,25 @@ import { Application } from 'express';
 import UserModel from '../models/user.model';
 import PostModel from '../models/post.model';
 import CommentModel from '../models/comment.model';
-import testComments from "./data/test.comments.json";
 
 var app: Application;
 
-const username = 'testUser';
+let username = 'testUser1';
 const userPassword = '123456';
 const email = 'test@email.com';
 let postText = "test text"
 let postImg = "img.png"
-let commentId: string;
-let updatedcommentText = "comment text"
-let postId: string;
+let userUpdatedImg = "img2.png"
 let newUserId: string;
 let accessToken: string;
+
+
+jest.setTimeout(40000);
 
 beforeAll(async () => {
     app = await appPromise;
     await UserModel.deleteMany();
     await PostModel.deleteMany();
-    await CommentModel.deleteMany();
     const userResponse = await request(app)
         .post("/api/auth/register")
         .send({
@@ -35,14 +34,12 @@ beforeAll(async () => {
     newUserId = userResponse.body._id;
 
     await loginUser();
-    const postResponse = await request(app)
+    await request(app)
         .post('/api/post/create')
         .set({ authorization: 'Bearer ' + accessToken }).send({
             "text": postText,
             "image": postImg
         });
-
-    postId = postResponse.body._id;
 });
 
 const loginUser = async () => {
@@ -66,96 +63,89 @@ afterAll(async () => {
 });
 
 
-describe("Comment Tests", () => {
+describe("User Tests", () => {
 
-    test("create a comment ", async () => {
+
+    test("update a user ", async () => {
+        const updatedUsername = `${username}-updated`
         const response = await request(app)
-            .post(`/api/comment/create`)
+            .put(`/api/user/update`)
             .set({ authorization: 'Bearer ' + accessToken }).send({
-                "postId": postId,
-                "text": testComments[0].text
+                "image": userUpdatedImg,
+                "username": updatedUsername
             });
 
         expect(response.statusCode).toEqual(200);
-        expect(response.body.text).toEqual(testComments[0].text);
-        commentId = response.body._id;
+        expect(response.body.image).toEqual(userUpdatedImg);
+        expect(response.body.username).toEqual(updatedUsername);
+        username = updatedUsername
     });
 
-    test("empty data for create a comment ", async () => {
+    test("failed update a user ", async () => {
         const response = await request(app)
-            .post(`/api/comment/create`)
+            .put(`/api/user/update`)
             .set({ authorization: 'Bearer ' + accessToken }).send();
 
         expect(response.statusCode).toEqual(400);
     });
 
-    test("get a comment ", async () => {
+    test("create a user ", async () => {
         const response = await request(app)
-            .get(`/api/comment/${commentId}`)
+            .post(`/api/user/create`).send({
+                'username': `1${username}`,
+                'email': `1${email}`,
+                'password': `1${userPassword}`
+            });
+
+        expect(response.statusCode).toEqual(200);
+    });
+
+    test("failed create a user ", async () => {
+        const response = await request(app)
+            .post(`/api/user/create`).send({
+                'username': `${username}`,
+                'email': `${email}`,
+                'password': `${userPassword}`
+            });
+
+        expect(response.statusCode).toEqual(400);
+    });
+
+    test("user data", async () => {
+        const response = await request(app)
+            .get(`/api/user/data`)
             .set({ authorization: 'Bearer ' + accessToken }).send();
 
         expect(response.statusCode).toEqual(200);
-        expect(response.body.text).toEqual(testComments[0].text);
+        expect(response.body.username).toEqual(username);
+        expect(response.body.email).toEqual(email);
     });
 
-    test("no id provided while get a comment ", async () => {
+    test("user posts", async () => {
         const response = await request(app)
-            .get(`/api/comment/null`)
-            .set({ authorization: 'Bearer ' + accessToken }).send();
-
-        expect(response.statusCode).toEqual(400);
-    });
-
-    test("get all post comments ", async () => {
-        const response = await request(app)
-            .get(`/api/comment/post/${postId}`)
+            .get(`/api/user/${newUserId}/posts`)
             .set({ authorization: 'Bearer ' + accessToken }).send();
 
         expect(response.statusCode).toEqual(200);
         expect(response.body.length).toEqual(1);
     });
 
-
-    test("update a comment ", async () => {
+    test("no id provided for user posts", async () => {
         const response = await request(app)
-            .put(`/api/comment/update`)
-            .set({ authorization: 'Bearer ' + accessToken }).send({
-                "id": commentId,
-                "text": updatedcommentText
-            });
-
-        expect(response.statusCode).toEqual(200);
-        expect(response.body.text).toEqual(updatedcommentText);
-    });
-
-
-
-    test("Delete a Comment", async () => {
-        const response = await request(app)
-            .delete(`/api/comment/${commentId}`)
+            .get(`/api/user/null/posts`)
             .set({ authorization: 'Bearer ' + accessToken }).send();
-        expect(response.statusCode).toEqual(200);
-        const comment = await CommentModel.findOne({ _id: commentId });
-        expect(comment).toEqual(null);
-    });
 
-    test("Delete a Comment while no id provided", async () => {
-        const response = await request(app)
-            .delete(`/api/comment/null`)
-            .set({ authorization: 'Bearer ' + accessToken }).send();
         expect(response.statusCode).toEqual(400);
     });
-    
 
-    test("get all post comments 2", async () => {
+    test("Delete a User", async () => {
         const response = await request(app)
-            .get(`/api/comment/post/${postId}`)
+            .delete(`/api/user/${newUserId}`)
             .set({ authorization: 'Bearer ' + accessToken }).send();
-
         expect(response.statusCode).toEqual(200);
-        expect(response.body.length).toEqual(0);
+        const user = await UserModel.findOne({ username });
+        expect(user).toEqual(null);
     });
-
 
 });
 

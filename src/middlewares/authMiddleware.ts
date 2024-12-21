@@ -13,7 +13,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     const userData = jwt.verify(token, config.JWT_SECRET) as {userId: string};
     (req as Express.Request & { user?: {userId: string} }).user = userData;
     return next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
+  } catch (error:any) {
+    console.log(error.message)
+    return res.status(401).json({ message: error.message });
   }
 };
